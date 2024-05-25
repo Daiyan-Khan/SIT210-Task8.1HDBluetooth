@@ -11,64 +11,64 @@ GPIO.setmode(GPIO.BOARD)
 GPIO.setup(LED_PIN, GPIO.OUT)
 
 # Pin cleanup routine
-def cleanup():
+def Cleanup():
     GPIO.cleanup(LED_PIN)
 
-class NotificationDelegate(btle.DefaultDelegate):
+class NotificationHandler(btle.DefaultDelegate):
     def __init__(self):
         super().__init__()
 
-    def handleNotification(self, cHandle, data):
+    def HandleNotification(self, cHandle, data):
         try:
             # Decode the float data
             distance = struct.unpack('f', data)[0]
             print(f"Received: {distance}")
             # Get the interval, and affect it through the callback
-            interval = SetInterval(distance)
+            interval = DetermineInterval(distance)
             # Print out so it can be seen
             print(f"Interval: {interval}; Distance: {distance}")
             # Set the LED blink interval
-            blinker.set_interval(interval)
+            blinker.SetInterval(interval)
         except Exception as e:
             print(f"Error handling notification: {e}")
 
-class AsyncBlinkLED:
+class AsyncLEDController:
     def __init__(self):
         self._stop_event = threading.Event()
-        self._thread = threading.Thread(target=self._run)
+        self._thread = threading.Thread(target=self._Execute)
         self.interval = None
 
-    def _run(self):
+    def _Execute(self):
         while not self._stop_event.is_set():
             if self.interval is None:
-                set_pins_state(False)
+                SetPinState(False)
                 time.sleep(0.1)
             else:
-                set_pins_state(True)
+                SetPinState(True)
                 time.sleep(self.interval)
-                set_pins_state(False)
+                SetPinState(False)
                 time.sleep(self.interval)
 
-    def start(self):
+    def Start(self):
         if not self._thread.is_alive():
             self._stop_event.clear()
-            self._thread = threading.Thread(target=self._run)
+            self._thread = threading.Thread(target=self._Execute)
             self._thread.start()
 
-    def stop(self):
+    def Stop(self):
         self._stop_event.set()
         self._thread.join()
 
-    def set_interval(self, interval):
+    def SetInterval(self, interval):
         self.interval = interval
 
 # Sets pins to the given state
-def set_pins_state(state):
+def SetPinState(state):
     GPIO.output(LED_PIN, state)
 
-set_pins_state(False)
+SetPinState(False)
 
-def SetInterval(distance):
+def DetermineInterval(distance):
     if distance < 0:
         return None
     
@@ -85,13 +85,13 @@ def SetInterval(distance):
     
     return None
 
-def connect_to_peripheral(target_address):
+def ConnectToPeripheral(target_address):
     print(f"Connecting to {target_address}...")
     peripheral = btle.Peripheral(target_address)
-    peripheral.setDelegate(NotificationDelegate())
+    peripheral.setDelegate(NotificationHandler())
     return peripheral
 
-def receive_data(peripheral):
+def ReceiveData(peripheral):
     try:
         print("Connected. Waiting for notifications...")
 
@@ -112,7 +112,7 @@ def receive_data(peripheral):
                 continue
             print("Waiting...")
     except btle.BTLEDisconnectError as e:
-        set_pins_state(False)
+        SetPinState(False)
         print(f"Disconnected: {e}")
         print("Retrying in 5 seconds...")
         time.sleep(5)
@@ -121,13 +121,12 @@ def receive_data(peripheral):
 if __name__ == "__main__":
     try:
         # Start controls of indicator
-        blinker = AsyncBlinkLED()
-        blinker.start()
+        blinker = AsyncLEDController()
+        blinker.Start()
         target_address = "D4:D4:DA:4E:FC:9E"
-        peripheral = connect_to_peripheral(target_address)
+        peripheral = ConnectToPeripheral(target_address)
         if peripheral:
-            receive_data(peripheral)
+            ReceiveData(peripheral)
     finally:
-        cleanup()
-        blinker.stop()
-
+        Cleanup()
+        blinker.Stop()
